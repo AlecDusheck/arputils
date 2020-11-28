@@ -3,6 +3,10 @@ import {NetworkUtils} from "./network-utils";
 
 export type PacketOp = 'request' | 'reply';
 
+/**
+ * ARP spoofing utils
+ * YOU MUST CLOSE THE SESSION TO PREVENT MEMORY LEAKS. The .close() will achieve this.
+ */
 export class ArpSpoof {
     private readonly session: PcapSession;
 
@@ -10,6 +14,11 @@ export class ArpSpoof {
         this.session = createSession(inf, {});
     }
 
+    /**
+     * Poison a client's ARP record. You probably want to do this every ~2 seconds.
+     * @param srcIp
+     * @param dstIp
+     */
     public poison = async (srcIp: string, dstIp: string) => {
         await this.sendRawPacket({
             'op': 'reply',
@@ -19,7 +28,26 @@ export class ArpSpoof {
         })
     }
 
-    private sendRawPacket = async (payload: { op: PacketOp, src_ip: string, dst_ip: string, dst_mac: string }) => {
+    /**
+     * Close the session on the interface
+     */
+    public close = () => this.session.close();
+
+    /**
+     * Send a raw packet. This is used internally, however, I've exposed it if you need to do some fancy things.
+     * @param payload
+     */
+    public sendRawPacket = async (payload: {
+        op: PacketOp,
+        src_ip: string,
+        dst_ip: string,
+        dst_mac: string,
+        ether_type?,
+        hw_type?,
+        proto_type?,
+        hw_len?,
+        proto_len?,
+    }) => {
         const interfaceData = await NetworkUtils.getInterface(this.inf);
         if (!interfaceData) throw new Error('Interface has invalid data');
 
@@ -28,12 +56,12 @@ export class ArpSpoof {
             dst: this.macToArray(payload.dst_mac),
             src: this.macToArray(interfaceData.mac_address),
 
-            ether_type: [0x08, 0x06],
-            hw_type: [0x00, 0x01],
-            proto_type: [0x08, 0x00],
+            ether_type: payload.ether_type ?? [0x08, 0x06],
+            hw_type: payload.hw_type ?? [0x00, 0x01],
+            proto_type: payload.proto_type ?? [0x08, 0x00],
 
-            hw_len: [0x06],
-            proto_len: [0x04],
+            hw_len: payload.hw_len ?? [0x06],
+            proto_len: payload.proto_len ?? [0x04],
 
             op: payload.op === 'reply' ? [0x00, 0x02] : [0x00, 0x01],
 
@@ -43,14 +71,11 @@ export class ArpSpoof {
             dst_ip: this.ipToArray(payload.dst_ip),
         };
 
+        // Convert the package object into an array to send
         let packetData = [];
         for (let property in packet) packetData = packetData.concat(packet[property]);
 
-        console.log(packetData)
-
-
         const buffer = Buffer.from(packetData);
-        console.log(buffer);
         this.session.inject(buffer);
     }
 

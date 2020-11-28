@@ -14,6 +14,9 @@ export class ArpTable {
 
     constructor(private readonly inf: string) {}
 
+    /**
+     * Get a list of clients on the arp table
+     */
     public getClients = async (): Promise<IArpTableClient[]> => {
         const rawContents = await this.getArpTableContents();
         return rawContents.split('\n')

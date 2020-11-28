@@ -1,7 +1,7 @@
 {
   "name": "arputils",
   "version": "1.0.0",
-  "description": "A Node.JS wrapper around ",
+  "description": "A Node.JS utility to send ARP packets",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
